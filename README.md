@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Starters
+
+A work-appropriate conversation starter card app. Draw a random question from a curated deck of 497 questions across 10 categories, or filter the deck to only the categories you want.
+
+## Features
+
+- **Card draw** — displays a random question on each draw, styled as a clean white portrait card (Helvetica Neue Bold, left-aligned)
+- **Category filtering** — multi-select category pills let you build a custom deck by including or excluding categories
+- **497 questions** across 10 categories: Funny, Thought-Provoking, Personal, Would You Rather, Family-Friendly, Work & Team Building, Creative Thinking, This or That, Imaginative, and Random & Fun
+
+## Stack
+
+- [Next.js](https://nextjs.org) (App Router)
+- TypeScript
+- Tailwind CSS
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Data
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Questions live in `src/data/table-topics.json` and are accessed via `src/lib/table-topics.ts`. To re-scrape or extend the question set, run the scripts in `scripts/`:
 
-## Learn More
+```bash
+# Re-scrape from source
+node scripts/scrape-table-topics.mjs
 
-To learn more about Next.js, take a look at the following resources:
+# Add the extended question set
+node scripts/extend-questions.mjs
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploying
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deployed on [Vercel](https://vercel.com) — import the repo and it works out of the box.
