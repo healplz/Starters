@@ -112,7 +112,8 @@ export default function Home() {
   const canDraw = activeCats.size > 0
 
   return (
-    <div className="min-h-screen flex flex-col items-center gap-8 px-4 py-12">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
+      <div className="w-full max-w-2xl bg-zinc-900/80 backdrop-blur-sm rounded-2xl px-8 py-10 flex flex-col items-center gap-8">
       {/* Header */}
       <header className="text-center">
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-100">Starters</h1>
@@ -222,6 +223,7 @@ export default function Home() {
             )
           })}
         </div>
+      </div>
       </div>
     </div>
   )
