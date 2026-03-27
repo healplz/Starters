@@ -23,17 +23,22 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Data
+## Adding Questions
 
-Questions live in `src/data/table-topics.json` and are accessed via `src/lib/table-topics.ts`. To re-scrape or extend the question set, run the scripts in `scripts/`:
+Questions live in `src/data/table-topics.json`. To add questions in bulk, prepare a CSV with `category` and `question` columns and run:
 
 ```bash
-# Re-scrape from source
-node scripts/scrape-table-topics.mjs
-
-# Add the extended question set
-node scripts/extend-questions.mjs
+node scripts/import-csv.mjs ./new-questions.csv
 ```
+
+Example CSV:
+```csv
+category,question
+Funny,Why did you take this job?
+Personal,What's the best advice you've ever received?
+```
+
+The script merges into existing categories (case-insensitive match), creates new categories as needed, and skips duplicates.
 
 ## Deploying
 
