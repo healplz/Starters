@@ -52,7 +52,20 @@
         "What's a commonly used word you absolutely can't stand?",
         "If your car had vanity plates, what would they say?",
         "What's the most ridiculous lie you've ever told, and did anyone believe it?",
-        "Imagine your life is being narrated — who would be the worst choice to tell your story?"
+        "Imagine your life is being narrated — who would be the worst choice to tell your story?",
+        "Who's the most famous person you've ever met — and how did you meet them?",
+        "What's your guilty pleasure?",
+        "What was your silliest fear when you were younger?",
+        "What's your current desktop or phone wallpaper and why did you choose it?",
+        "If you had to give your car a name what would it be?",
+        "What's your favorite knock-knock joke?",
+        "If you could host any talk show which one would you pick?",
+        "What was your best Halloween costume — and what was your worst?",
+        "What's the last thing you got in trouble for?",
+        "If you could bring back any fashion trend or old slang which would you choose?",
+        "If you had to talk like a cartoon character for the rest of your life who would you choose?",
+        "What's the worst piece of advice you've ever been given?",
+        "If you had to eat a crayon what color would you choose?"
       ]
     },
     {
@@ -107,7 +120,11 @@
         "What's a piece of conventional wisdom you think is actually wrong?",
         "What topic could you talk about for hours without preparation?",
         "What's something you'd do differently if you could start your career over?",
-        "What's the most interesting thing you've learned this year?"
+        "What's the most interesting thing you've learned this year?",
+        "What does success mean to you outside of work?",
+        "What's one of your core values?",
+        "What's something you're grateful for this week?",
+        "What's a challenge you've overcome that you're proud of?"
       ]
     },
     {
@@ -161,7 +178,27 @@
         "What's a book, show, or podcast that changed how you think about something?",
         "If you could master any skill overnight, what would it be?",
         "What's the last thing you did that made you feel really proud?",
-        "What does your perfect Saturday look like?"
+        "What does your perfect Saturday look like?",
+        "What's your favorite local restaurant and why?",
+        "When was the last time you did something for the first time?",
+        "What's the most surprising thing that's happened to you in another state or country?",
+        "Tell us something about yourself that would surprise most people who know you.",
+        "Describe an experience that changed your values.",
+        "Do you have any siblings — are you the eldest middle or youngest?",
+        "Where did you grow up?",
+        "Did you have any pets as a kid?",
+        "Did you play sports as a kid — do you still?",
+        "Do you speak any other languages?",
+        "What's your favorite place in the world?",
+        "What was your favorite cartoon as a kid?",
+        "What's a piece of advice your parents or grandparents gave you that you'd pass on?",
+        "What were your favorite subjects in school?",
+        "Did you have an imaginary best friend growing up — what were they like?",
+        "Have you ever been mistaken for someone famous?",
+        "What book are you currently reading — and what's your all-time favorite?",
+        "If you were granted three wishes what would they be?",
+        "What's the greatest gift you've ever received — and the best one you've ever given?",
+        "If you could master any new musical instrument instantly what would it be?"
       ]
     },
     {
@@ -187,7 +224,6 @@
         "Would you rather always get stuck in traffic or always have slow internet?",
         "Would you rather always be cold or always be hot?",
         "Would you rather read minds or be invisible?",
-
         "Would you rather have unlimited international flights or never pay for food at restaurants again?",
         "Would you rather work from home forever or never work from home again?",
         "Would you rather have a photographic memory or an IQ of 200?",
@@ -198,7 +234,6 @@
         "Would you rather live without the internet or without your smartphone?",
         "Would you rather be able to speak every language or play every instrument?",
         "Would you rather be able to control your dreams or never need to sleep?",
-
         "Would you rather be an expert at one thing or decent at many things?",
         "Would you rather work in complete silence or with constant background noise?",
         "Would you rather have a photographic memory of every book you read or every conversation you have?",
@@ -215,7 +250,13 @@
         "Would you rather be fantastic at art but terrible at music, or vice versa?",
         "Would you rather have a walk-on role in a Star Wars film or voice a character in a Pixar movie?",
         "Would you rather be able to time travel but never return to the present, or teleport only to places you've never been?",
-        "Would you rather have unlimited respect or unlimited money?"
+        "Would you rather have unlimited respect or unlimited money?",
+        "Would you rather go on a relaxing vacation or an adventure hike?",
+        "Would you rather be a member of the Avengers or the Justice League?",
+        "Would you rather star in a romance-based or adventure-based reality TV show?",
+        "Would you rather have a theme song for your life or a constant soundtrack playing in the background?",
+        "Would you rather be a superhero or the world's best chef?",
+        "Would you rather sing karaoke with your department head or be on a group call with the CEO and your parents?"
       ]
     },
     {
@@ -241,7 +282,6 @@
         "If you had to describe your family in three words, what would they be?",
         "What’s your favorite holiday and why?",
         "Who in your family makes you laugh the most?",
-
         "Early bird or night owl?",
         "Book or movie adaptation?",
         "City or countryside?",
@@ -268,7 +308,16 @@
         "What's a small thing that always puts you in a good mood?",
         "What's something popular right now that you just don't get?",
         "If you could learn any language, which would you choose and why?",
-        "What's something you do well that you've never had formal training in?"
+        "What's something you do well that you've never had formal training in?",
+        "Have you ever traveled outside of the country?",
+        "Snow or sand?",
+        "Where did you go the first time you remember traveling?",
+        "What's your favorite thing to do locally?",
+        "What's your favorite breakfast food?",
+        "What are your favorite pizza toppings?",
+        "What's your favorite type of ice cream?",
+        "What's your favorite fast food restaurant?",
+        "Was there ever a food you refused to eat but loved once you tried it?"
       ]
     },
     {
@@ -323,7 +372,28 @@
         "What's something you wish you'd known when you started this job?",
         "What's your proudest professional accomplishment?",
         "How would you describe your communication style in three words?",
-        "What does a great day at work look like for you?"
+        "What does a great day at work look like for you?",
+        "What's one piece of advice you'd give to someone starting in your field?",
+        "If you could pick any fictional character to be your mentor at work who would it be?",
+        "What's your go-to productivity hack for busy days at work?",
+        "What's your favorite way to unwind after a long workday?",
+        "What's one team-building activity you think every company should try?",
+        "If you had to describe your role using only three emojis what would they be?",
+        "If our team were stranded on a deserted island who would you want to take charge?",
+        "If you could choose a fictional world for our next team-building retreat where would it be?",
+        "What's one team icebreaker question you've never been asked but wish someone would ask?",
+        "What's the most memorable team-building activity you've participated in?",
+        "If our team could only communicate through sounds what sound would best represent your personality?",
+        "What's your favorite childhood game that involved teamwork?",
+        "Do you have any coworkers — partners roommates siblings parents or pets?",
+        "Have your working hours changed as a result of remote work?",
+        "Do you prefer working remotely or working in an office?",
+        "What's your best WFH accessory?",
+        "What's your go-to WFH beverage?",
+        "Is there a spot in your house where you feel most productive?",
+        "If you could have any upgrade to your WFH setup what would it be?",
+        "What's your morning routine?",
+        "How often do you work in your PJs?"
       ]
     },
     {
@@ -432,7 +502,8 @@
         "Working ahead or right on deadline?",
         "Start a task right away or let it marinate first?",
         "Collaborative brainstorm or solo thinking first?",
-        "Digital calendar or paper planner?"
+        "Digital calendar or paper planner?",
+        "Work from home or work from the office?"
       ]
     },
     {
@@ -487,7 +558,15 @@
         "If your team were characters in a movie, what movie would it be?",
         "If you could visit any place in the universe, where would you go?",
         "If you could design a holiday, what would it celebrate and what would you call it?",
-        "If you had to leave your job tomorrow and could do anything, what would you choose?"
+        "If you had to leave your job tomorrow and could do anything, what would you choose?",
+        "If you had to live inside a video game which one would it be?",
+        "If you could remove one word from the dictionary what would it be?",
+        "If you could control one element — air water earth or fire — which would it be and why?",
+        "If you had to live inside a Disney movie which would you choose?",
+        "If you could only watch one movie for the rest of your life what would it be?",
+        "If you could only listen to one album for the rest of your life which would you choose?",
+        "If you were a potato how would you like to be cooked?",
+        "You have 20 minutes to plan for the zombie apocalypse — what do you do?"
       ]
     },
     {
@@ -541,7 +620,28 @@
         "What's the best decision you've made in the past year?",
         "What's a place you want to visit before you die?",
         "If you could relive any single day of your life, which would it be?",
-        "What's one thing you want to accomplish in the next 12 months?"
+        "What's one thing you want to accomplish in the next 12 months?",
+        "What game show do you think you could win?",
+        "If you could only use one emoji for the rest of your life what would it be?",
+        "What's your favorite movie quote?",
+        "What's something you think is totally overrated?",
+        "What book do you wish you could read for the first time again?",
+        "Name one movie you think should have a sequel.",
+        "If you had to email the CEO an emoji right now which one would you use?",
+        "What was the first thing you thought about this morning?",
+        "What has been the best day of your life so far?",
+        "If aliens landed on Earth who would you recommend they talk to?",
+        "Is a hotdog a sandwich?",
+        "What's your favorite TV show?",
+        "What's your favorite movie?",
+        "What's your favorite song?",
+        "What's your favorite genre of music?",
+        "Are you a dog person a cat person or both?",
+        "What was your first concert — and what was the best concert you've ever been to?",
+        "If you were stranded on a deserted island what one book or object would you bring?",
+        "What are you passionate about outside of work?",
+        "What's your favorite happy hour drink?",
+        "If you could name a cocktail what would you call it?"
       ]
     }
   ]
