@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getAllCategories } from '@/lib/table-topics'
 
+const FLIP_MS = 300
+
 const categories = getAllCategories()
 const allNames = new Set(categories.map((c) => c.name))
 
@@ -78,16 +80,25 @@ function drawFrom(activeCats: Set<string>): CardData {
 export default function Home() {
   const [activeCats, setActiveCats] = useState<Set<string>>(new Set(allNames))
   const [card, setCard] = useState<CardData | null>(null)
-  const [visible, setVisible] = useState(true)
+  const [faceUp, setFaceUp] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
 
   const deal = useCallback((cats: Set<string>) => {
-    if (cats.size === 0) return
-    setVisible(false)
-    setTimeout(() => {
-      setCard(drawFrom(cats))
-      setVisible(true)
-    }, 120)
-  }, [])
+    if (cats.size === 0 || isAnimating) return
+    const next = drawFrom(cats)
+    if (!faceUp) {
+      setCard(next)
+      setFaceUp(true)
+    } else {
+      setIsAnimating(true)
+      setFaceUp(false)
+      setTimeout(() => {
+        setCard(next)
+        setFaceUp(true)
+        setIsAnimating(false)
+      }, FLIP_MS / 2)
+    }
+  }, [faceUp, isAnimating])
 
   useEffect(() => {
     setCard(drawFrom(new Set(allNames)))
@@ -120,55 +131,110 @@ export default function Home() {
         <p className="text-sm text-zinc-500 mt-1">A conversation starter for every occasion</p>
       </header>
 
-      {/* Card — CAH white card aesthetic */}
+      {/* Card — 3D flip */}
       <div
         style={{
-          fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-          backgroundColor: '#fff',
+          perspective: '1000px',
           width: '100%',
           maxWidth: '320px',
           aspectRatio: '5 / 7',
-          padding: '28px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          borderRadius: '8px',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
-          opacity: visible ? 1 : 0,
-          transition: 'opacity 120ms ease-in-out',
         }}
       >
-        <p
+        <div
           style={{
-            fontWeight: 700,
-            fontSize: '1.25rem',
-            lineHeight: 1.4,
-            color: '#000',
-            margin: 0,
-            textAlign: 'left',
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            transformStyle: 'preserve-3d',
+            transition: `transform ${FLIP_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+            transform: faceUp ? 'rotateY(180deg)' : 'rotateY(0deg)',
           }}
         >
-          {card?.question ?? ''}
-        </p>
-        <p
-          style={{
-            fontWeight: 700,
-            fontSize: '0.65rem',
-            color: '#000',
-            margin: 0,
-            textAlign: 'left',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-          }}
-        >
-          {card ? shortName(card.categoryName) : ''}
-        </p>
+          {/* Back face */}
+          <div
+            style={{
+              position: 'absolute',
+              width: '100%',
+              height: '100%',
+              backfaceVisibility: 'hidden',
+              fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+              backgroundColor: '#1a1a4e',
+              borderRadius: '8px',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+            }}
+          >
+            <span style={{ fontSize: '1.5rem', color: 'rgba(255,255,255,0.4)' }}>✦</span>
+            <p
+              style={{
+                fontWeight: 700,
+                fontSize: '1.5rem',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: '#fff',
+                margin: 0,
+              }}
+            >
+              Starters
+            </p>
+          </div>
+
+          {/* Front face — CAH white card aesthetic */}
+          <div
+            style={{
+              position: 'absolute',
+              width: '100%',
+              height: '100%',
+              backfaceVisibility: 'hidden',
+              transform: 'rotateY(180deg)',
+              fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+              backgroundColor: '#fff',
+              padding: '28px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              borderRadius: '8px',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+              boxSizing: 'border-box',
+            }}
+          >
+            <p
+              style={{
+                fontWeight: 700,
+                fontSize: '1.25rem',
+                lineHeight: 1.4,
+                color: '#000',
+                margin: 0,
+                textAlign: 'left',
+              }}
+            >
+              {card?.question ?? ''}
+            </p>
+            <p
+              style={{
+                fontWeight: 700,
+                fontSize: '0.65rem',
+                color: '#000',
+                margin: 0,
+                textAlign: 'left',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
+              {card ? shortName(card.categoryName) : ''}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Draw button */}
       <button
         onClick={() => deal(activeCats)}
-        disabled={!canDraw}
+        disabled={!canDraw || isAnimating}
         className="flex items-center gap-2 px-7 py-3 rounded-full bg-white text-zinc-900 text-sm font-medium hover:bg-zinc-100 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
       >
         <svg
@@ -186,7 +252,7 @@ export default function Home() {
           <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
           <path d="M3 3v5h5" />
         </svg>
-        Draw Another
+        {faceUp ? 'Draw Another' : 'Draw'}
       </button>
 
       {/* Category multi-select */}
