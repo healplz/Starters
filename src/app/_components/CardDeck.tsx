@@ -88,32 +88,50 @@ function questionKey(card: CardData): string {
 
 type CardData = { question: string; categoryName: string }
 
-/** Pick a random question, excluding used questions and preferring to avoid the most recent card. */
+/** Pick a random question, excluding used questions and preferring unseen/fresh ones. */
 function drawFrom(
   categories: Category[],
   activeCats: Set<string>,
   usedQuestions: Set<string>,
   previousCard: CardData | null,
+  history?: CardData[],
 ): CardData | null {
   const pool = categories.filter((c) => activeCats.has(c.name))
 
-  // Gather all eligible questions
-  const eligible: CardData[] = []
+  // Gather all eligible questions with weights
+  interface Weighted { data: CardData; weight: number }
+  const weighted: Weighted[] = []
+  const historySet = new Set(history?.map(questionKey) ?? [])
+  const prevKey = previousCard ? questionKey(previousCard) : null
+
   for (const cat of pool) {
     for (const q of cat.questions) {
-      if (!usedQuestions.has(`${cat.name}::${q}`)) {
-        eligible.push({ question: q, categoryName: cat.name })
-      }
+      const key = `${cat.name}::${q}`
+      if (usedQuestions.has(key)) continue
+
+      // Weighting:
+      //   - Never seen in this session: 1.0
+      //   - In history (drawn but not used): 0.3
+      //   - Same as the very last card: 0.1
+      let weight = historySet.has(key) ? 0.3 : 1.0
+      if (prevKey === key) weight = 0.1
+
+      weighted.push({ data: { question: q, categoryName: cat.name }, weight })
     }
   }
 
-  if (eligible.length === 0) return null
+  if (weighted.length === 0) return null
 
-  // Try to avoid giving the exact same question as the previous card
-  const prevKey = previousCard ? questionKey(previousCard) : null
-  const filtered = prevKey ? eligible.filter((c) => questionKey(c) !== prevKey) : eligible
+  // Weighted random selection
+  const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0)
+  let random = Math.random() * totalWeight
+  for (const entry of weighted) {
+    random -= entry.weight
+    if (random <= 0) return entry.data
+  }
 
-  return pickRandom(filtered.length > 0 ? filtered : eligible)
+  // Fallback (shouldn't happen)
+  return weighted[weighted.length - 1].data
 }
 
 function loadFromStorage<T>(key: string, fallback: T): T {
@@ -340,8 +358,8 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     }
   }, [timerDuration, clearTimer])
 
-  const performDraw = useCallback((cats: Set<string>, used: Set<string>, prevCard: CardData | null) => {
-    const next = drawFrom(categories, cats, used, prevCard)
+  const performDraw = useCallback((cats: Set<string>, used: Set<string>, prevCard: CardData | null, hist?: CardData[]) => {
+    const next = drawFrom(categories, cats, used, prevCard, hist)
     setAllExhausted(next === null)
     return next
   }, [categories])
@@ -349,20 +367,24 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
   const deal = useCallback((cats: Set<string>) => {
     if (cats.size === 0 || isAnimating) return
 
-    // If all questions are used, reset the session automatically
-    const effectiveUsed = usedQuestions
+    // Build the used set: include all previously used questions, and auto-mark
+    // the current card as used when drawing a new one.
+    const nextUsed = card ? new Set(usedQuestions).add(questionKey(card)) : usedQuestions
+    const prevCard = card
 
-    const next = performDraw(cats, effectiveUsed, card)
+    const next = performDraw(cats, nextUsed, prevCard, history)
     if (!next) {
       setAllExhausted(true)
       return
     }
 
     if (!faceUp) {
+      // First draw — no card to mark as used
       setCard(next)
       setFaceUp(true)
     } else {
-      // Push current card to history before flipping to new one
+      // Auto-mark current card as used, push to history
+      setUsedQuestions(nextUsed)
       if (card) {
         setHistory((prev) => [card, ...prev].slice(0, MAX_HISTORY))
       }
@@ -377,10 +399,10 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     setTimeout(() => {
       resetTimer()
     }, faceUp ? FLIP_MS / 2 : 0)
-  }, [faceUp, isAnimating, categories, performDraw, card, usedQuestions, resetTimer])
+  }, [faceUp, isAnimating, categories, performDraw, card, usedQuestions, history, resetTimer])
 
   useEffect(() => {
-    const initial = performDraw(new Set(allNames), usedQuestions, null)
+    const initial = performDraw(new Set(allNames), usedQuestions, null, [])
     if (initial) {
       setCard(initial)
       setFaceUp(true)
@@ -423,40 +445,6 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     } else {
       setTimeRemaining(0)
     }
-  }
-
-  /** Mark the current question as used */
-  const markUsed = () => {
-    if (!card) return
-    const key = questionKey(card)
-    if (usedQuestions.has(key)) return
-
-    const nextUsed = new Set(usedQuestions)
-    nextUsed.add(key)
-    setUsedQuestions(nextUsed)
-
-    // Also add to history if not already there
-    setHistory((prev) => {
-      if (prev.length > 0 && prev[0].question === card.question && prev[0].categoryName === card.categoryName) {
-        return prev
-      }
-      return [card, ...prev].slice(0, MAX_HISTORY)
-    })
-
-    // Auto-draw next card
-    const next = performDraw(activeCats, nextUsed, card)
-    if (!next) {
-      setAllExhausted(true)
-      return
-    }
-    setIsAnimating(true)
-    setFaceUp(false)
-    setTimeout(() => {
-      setCard(next)
-      setFaceUp(true)
-      setIsAnimating(false)
-      resetTimer()
-    }, FLIP_MS / 2)
   }
 
   /** Share the current card as an image — exported image never includes the timer */
@@ -519,7 +507,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     setUsedQuestions(new Set())
     setAllExhausted(false)
     // Re-draw the initial card
-    const next = drawFrom(categories, activeCats, new Set(), null)
+    const next = drawFrom(categories, activeCats, new Set(), null, [])
     if (next) {
       setCard(next)
       setFaceUp(true)
@@ -792,18 +780,6 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
         {/* Secondary action row */}
         {card && !allExhausted && (
           <div className="flex items-center gap-2">
-            {!isUsed && (
-              <button
-                onClick={markUsed}
-                disabled={isAnimating}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 text-zinc-400 text-xs font-medium border border-zinc-700 hover:text-emerald-300 hover:border-emerald-700 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                Done — Next
-              </button>
-            )}
             <button
               onClick={shareCard}
               disabled={isAnimating}
