@@ -399,13 +399,14 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
   const handleTimerChange = (value: number) => {
     clearTimer()
     setTimerDuration(value)
-    setTimerActive(false)
     setTimerExpired(false)
     if (value > 0) {
+      // Set the duration but don't start the timer yet — it starts on the next draw
       setTimeRemaining(value)
-      setTimerActive(true)
+      setTimerActive(false)
     } else {
       setTimeRemaining(0)
+      setTimerActive(false)
     }
   }
 
