@@ -885,18 +885,17 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
       {/* History drawer — slides in from the right */}
       {history.length > 0 && (
         <>
-          {/* Trigger tab */}
+          {/* Trigger tab — file folder style */}
           <button
             onClick={() => setShowHistory(true)}
-            className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center gap-1 px-2 py-8 rounded-l-lg bg-zinc-800/80 text-zinc-400 text-xs font-medium hover:text-zinc-200 hover:bg-zinc-700/80 transition-all cursor-pointer writing-mode-vertical"
-            style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+            className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center gap-2 pl-3 pr-5 py-2 rounded-tl-lg rounded-bl-lg bg-zinc-800/80 text-zinc-400 text-xs font-medium hover:text-zinc-200 hover:bg-zinc-700/80 transition-all cursor-pointer shadow-lg"
             title="Open history"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: 'rotate(90deg)', marginBottom: '6px' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
             <span>History</span>
-            <span className="text-zinc-600 ml-1">{history.length}</span>
+            <span className="text-zinc-600">{history.length}</span>
           </button>
 
           {/* Backdrop */}
