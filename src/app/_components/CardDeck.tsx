@@ -382,15 +382,6 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Start timer on initial card if duration > 0
-  useEffect(() => {
-    if (card && timerDuration > 0 && !timerActive && timeRemaining === 0 && !timerExpired) {
-      resetTimer()
-    }
-  // Only run when card changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [card])
-
   const toggleCategory = (name: string) => {
     setActiveCats((prev) => {
       const next = new Set(prev)
