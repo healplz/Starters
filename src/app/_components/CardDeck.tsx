@@ -133,6 +133,126 @@ function saveToStorage(key: string, value: unknown) {
   } catch { /* quota exceeded – ignore */ }
 }
 
+/** Draw the current card onto a canvas and return a blob. */
+function renderCardToBlob(
+  question: string,
+  categoryName: string,
+  timerInfo?: { expired: boolean; remaining: number; duration: number } | null,
+): Promise<Blob | null> {
+  const WIDTH = 640
+  const HEIGHT = Math.round(WIDTH * (7 / 5)) // 5:7 aspect ratio
+  const PAD = 48
+
+  const canvas = document.createElement('canvas')
+  canvas.width = WIDTH
+  canvas.height = HEIGHT
+  const ctx = canvas.getContext('2d')!
+
+  // White card background
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.roundRect(0, 0, WIDTH, HEIGHT, 16)
+  ctx.fill()
+
+  // Shadow
+  ctx.shadowColor = 'rgba(0,0,0,0.15)'
+  ctx.shadowBlur = 40
+  ctx.shadowOffsetY = 8
+  ctx.beginPath()
+  ctx.roundRect(0, 0, WIDTH, HEIGHT, 16)
+  ctx.fill()
+  ctx.shadowColor = 'transparent'
+
+  // Re-draw white on top of shadow
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.roundRect(0, 0, WIDTH, HEIGHT, 16)
+  ctx.fill()
+
+  const textX = PAD
+  const textWidth = WIDTH - PAD * 2
+
+  // Question text
+  ctx.fillStyle = '#000000'
+  ctx.textBaseline = 'top'
+
+  const fontSize = HEIGHT < 500 ? 22 : 28
+  ctx.font = `700 ${fontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+
+  // Word-wrap the question
+  const words = question.split(' ')
+  const lines: string[] = []
+  let currentLine = ''
+  for (const word of words) {
+    const test = currentLine ? currentLine + ' ' + word : word
+    const metrics = ctx.measureText(test)
+    if (metrics.width > textWidth && currentLine) {
+      lines.push(currentLine)
+      currentLine = word
+    } else {
+      currentLine = test
+    }
+  }
+  if (currentLine) lines.push(currentLine)
+
+  const lineHeight = fontSize * 1.35
+  const questionHeight = lines.length * lineHeight
+  const maxQuestionArea = HEIGHT - PAD * 2 - 40 - 30 // leave room for category + timer
+  const startY = Math.min(PAD, PAD + (maxQuestionArea - questionHeight) / 2)
+
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], textX, startY + i * lineHeight)
+  }
+
+  // Timer info at bottom of question area if active
+  let bottomOffset = PAD + Math.max(questionHeight, 60) + 8
+
+  if (timerInfo && timerInfo.duration > 0) {
+    const barY = bottomOffset
+    const barHeight = 6
+    const progress = timerInfo.remaining / timerInfo.duration
+
+    // Progress bar track
+    ctx.fillStyle = '#e5e5e5'
+    ctx.beginPath()
+    ctx.roundRect(textX, barY, textWidth, barHeight, 3)
+    ctx.fill()
+
+    // Progress bar fill
+    ctx.fillStyle = timerInfo.remaining <= 10 ? '#ef4444' : '#000000'
+    ctx.beginPath()
+    ctx.roundRect(textX, barY, textWidth * progress, barHeight, 3)
+    ctx.fill()
+
+    // Time remaining text
+    ctx.font = `700 16px "Helvetica Neue", Helvetica, Arial, sans-serif`
+    ctx.textBaseline = 'top'
+    ctx.fillStyle = timerInfo.remaining <= 10 ? '#ef4444' : '#000000'
+    const timeStr = formatTime(timerInfo.remaining)
+    const timeMetrics = ctx.measureText(timeStr)
+    ctx.fillText(timeStr, WIDTH - PAD - timeMetrics.width, barY + barHeight + 4)
+
+    if (timerInfo.expired) {
+      ctx.font = `700 16px "Helvetica Neue", Helvetica, Arial, sans-serif`
+      ctx.fillStyle = '#ef4444'
+      ctx.fillText("Time's up!", textX, barY + barHeight + 4)
+    }
+
+    bottomOffset = barY + barHeight + 28
+  }
+
+  // Category name at bottom
+  const shortCat = shortName(categoryName)
+  ctx.font = `700 14px "Helvetica Neue", Helvetica, Arial, sans-serif`
+  ctx.textBaseline = 'bottom'
+  ctx.fillStyle = '#000000'
+  ctx.fillText(shortCat.toUpperCase(), textX, HEIGHT - PAD)
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/png')
+  })
+}
+
 export default function CardDeck({ categories }: { categories: Category[] }) {
   const allNames = new Set(categories.map((c) => c.name))
 
@@ -360,6 +480,62 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
       resetTimer()
     }, FLIP_MS / 2)
   }
+
+  /** Share the current card as an image */
+  const shareCard = useCallback(async () => {
+    if (!card) return
+
+    const blob = await renderCardToBlob(
+      card.question,
+      card.categoryName,
+      timerDuration > 0
+        ? { expired: timerExpired, remaining: timeRemaining, duration: timerDuration }
+        : null,
+    )
+    if (!blob) return
+
+    const file = new File([blob], 'starters-card.png', { type: 'image/png' })
+
+    // Try Web Share API with image
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: 'Starters',
+          text: card.question,
+          files: [file],
+        })
+        return
+      } catch {
+        // User cancelled or API failed – fall through
+      }
+    }
+
+    // Fallback: download the image
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'starters-card.png'
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [card, timerDuration, timerExpired, timeRemaining])
+
+  /** Copy the question text to clipboard */
+  const copyQuestion = useCallback(async () => {
+    if (!card) return
+    try {
+      await navigator.clipboard.writeText(card.question)
+    } catch {
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea')
+      textarea.value = card.question
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+  }, [card])
 
   /** Reset the session: clear history and used questions */
   const resetSession = () => {
@@ -652,6 +828,29 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
                 Done — Next
               </button>
             )}
+            <button
+              onClick={shareCard}
+              disabled={isAnimating}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 text-zinc-400 text-xs font-medium border border-zinc-700 hover:text-sky-300 hover:border-sky-700 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Share card as image"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+              Share
+            </button>
+            <button
+              onClick={copyQuestion}
+              disabled={isAnimating}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 text-zinc-400 text-xs font-medium border border-zinc-700 hover:text-zinc-300 hover:border-zinc-500 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Copy question text"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              Copy
+            </button>
             <button
               onClick={resetSession}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 text-zinc-500 text-xs font-medium border border-zinc-700 hover:text-zinc-300 hover:border-zinc-500 transition-all cursor-pointer"
