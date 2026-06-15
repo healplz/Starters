@@ -286,6 +286,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [timerActive, setTimerActive] = useState(false)
   const [timerExpired, setTimerExpired] = useState(false)
+  const [timerKey, setTimerKey] = useState(0) // incremented on each reset to force effect re-run
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Clear timer interval
@@ -303,13 +304,14 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     if (timerDuration > 0) {
       setTimeRemaining(timerDuration)
       setTimerActive(true)
+      setTimerKey((k) => k + 1) // force the countdown effect to re-run
     } else {
       setTimeRemaining(0)
       setTimerActive(false)
     }
   }, [timerDuration, clearTimer])
 
-  // Countdown effect
+  // Countdown effect — re-runs whenever timerKey changes (on each reset or start)
   useEffect(() => {
     if (!timerActive || timeRemaining <= 0) return
 
@@ -326,7 +328,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     }, 1000)
 
     return clearTimer
-  }, [timerActive, clearTimer])
+  }, [timerActive, timerKey, clearTimer])
 
   // Stop timer when duration is set to 0
   useEffect(() => {
@@ -423,30 +425,6 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     }
   }
 
-  /** Mark the current question as used and draw a new one */
-  const markUsedAndDraw = () => {
-    if (!card) return
-    setUsedQuestions((prev) => {
-      const next = new Set(prev)
-      next.add(questionKey(card))
-      return next
-    })
-    // Draw a new card after marking used
-    // We need to defer so the used set is updated
-    setTimeout(() => {
-      setUsedQuestions((currentUsed) => {
-        // We can't call deal from inside a setState updater, so we use a ref trick
-        return currentUsed
-      })
-    }, 0)
-    // Instead, let's use a different approach: trigger deal after a microtask
-    setTimeout(() => {
-      // Re-run deal with the updated usedQuestions state
-      // Since usedQuestions hasn't been applied yet in this render, 
-      // we'll schedule a new draw
-    }, 0)
-  }
-
   /** Mark the current question as used */
   const markUsed = () => {
     if (!card) return
@@ -481,16 +459,14 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     }, FLIP_MS / 2)
   }
 
-  /** Share the current card as an image */
+  /** Share the current card as an image — exported image never includes the timer */
   const shareCard = useCallback(async () => {
     if (!card) return
 
     const blob = await renderCardToBlob(
       card.question,
       card.categoryName,
-      timerDuration > 0
-        ? { expired: timerExpired, remaining: timeRemaining, duration: timerDuration }
-        : null,
+      null, // timer is never included in exported images
     )
     if (!blob) return
 
