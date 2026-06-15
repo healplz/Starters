@@ -242,24 +242,31 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
   const [isAnimating, setIsAnimating] = useState(false)
   const [allExhausted, setAllExhausted] = useState(false)
 
-  // Session history + used questions
-  const [history, setHistory] = useState<CardData[]>(() =>
-    loadFromStorage<CardData[]>(STORAGE_HISTORY_KEY, [])
-  )
-  const [usedQuestions, setUsedQuestions] = useState<Set<string>>(() => {
-    const arr = loadFromStorage<string[]>(STORAGE_USED_KEY, [])
-    return new Set(arr)
-  })
+  // Session history + used questions — start empty to avoid hydration mismatch
+  // with localStorage. Load saved data after mount.
+  const [history, setHistory] = useState<CardData[]>([])
+  const [usedQuestions, setUsedQuestions] = useState<Set<string>>(new Set())
   const [showHistory, setShowHistory] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
 
-  // Persist history and used questions to localStorage
   useEffect(() => {
+    const savedHistory = loadFromStorage<CardData[]>(STORAGE_HISTORY_KEY, [])
+    if (savedHistory.length > 0) setHistory(savedHistory)
+    const savedUsed = loadFromStorage<string[]>(STORAGE_USED_KEY, [])
+    if (savedUsed.length > 0) setUsedQuestions(new Set(savedUsed))
+    setHydrated(true)
+  }, [])
+
+  // Persist history and used questions to localStorage (only after hydration)
+  useEffect(() => {
+    if (!hydrated) return
     saveToStorage(STORAGE_HISTORY_KEY, history)
-  }, [history])
+  }, [history, hydrated])
 
   useEffect(() => {
+    if (!hydrated) return
     saveToStorage(STORAGE_USED_KEY, Array.from(usedQuestions))
-  }, [usedQuestions])
+  }, [usedQuestions, hydrated])
 
   // Timer state
   const [timerDuration, setTimerDuration] = useState(0)
