@@ -892,28 +892,20 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
 
           {showHistory && (
             <div className="w-full max-h-40 overflow-y-auto flex flex-col gap-1.5 px-2">
-              {history.map((entry, i) => {
-                const used = usedQuestions.has(questionKey(entry))
-                return (
-                  <div
-                    key={`${i}-${entry.question}`}
-                    className={`flex items-start gap-2 px-3 py-2 rounded-lg text-sm ${
-                      used ? 'bg-zinc-800/30' : 'bg-zinc-800/50'
-                    }`}
-                  >
-                    <span className="text-zinc-600 text-xs mt-0.5 shrink-0 w-4">#{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm leading-snug ${used ? 'text-zinc-500 line-through' : 'text-zinc-300'}`}>
-                        {entry.question}
-                      </p>
-                      <p className="text-xs text-zinc-600 mt-0.5">{shortName(entry.categoryName)}</p>
-                    </div>
-                    {used && (
-                      <span className="text-xs text-zinc-600 shrink-0 mt-0.5">✓ used</span>
-                    )}
+              {history.map((entry, i) => (
+                <div
+                  key={`${i}-${entry.question}`}
+                  className="flex items-start gap-2 px-3 py-2 rounded-lg bg-zinc-800/50 text-sm"
+                >
+                  <span className="text-zinc-600 text-xs mt-0.5 shrink-0 w-4">#{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm leading-snug text-zinc-300">
+                      {entry.question}
+                    </p>
+                    <p className="text-xs text-zinc-600 mt-0.5">{shortName(entry.categoryName)}</p>
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>
