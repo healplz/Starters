@@ -327,8 +327,13 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     }
   }, [timerDuration, clearTimer])
 
-  const performDraw = useCallback((cats: Set<string>, used: Set<string>, prevCard: CardData | null, hist?: CardData[]) => {
-    const next = drawFrom(categories, cats, used, prevCard, hist)
+  const performDraw = useCallback((
+    activeCats: Set<string>,
+    usedQuestions: Set<string>,
+    previousCard: CardData | null,
+    history?: CardData[],
+  ) => {
+    const next = drawFrom(categories, activeCats, usedQuestions, previousCard, history)
     setAllExhausted(next === null)
     return next
   }, [categories])
