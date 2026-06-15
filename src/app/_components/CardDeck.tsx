@@ -819,7 +819,6 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
           {categories.map((cat) => {
             const s = getPillStyles(cat.name)
             const isActive = activeCats.has(cat.name)
-            const usedInCat = cat.questions.filter((q) => usedQuestions.has(`${cat.name}::${q}`)).length
             return (
               <button
                 key={cat.name}
@@ -829,9 +828,6 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
                 }`}
               >
                 {shortName(cat.name)}
-                {isActive && usedInCat > 0 && (
-                  <span className="ml-1.5 opacity-60">{cat.questions.length - usedInCat}/{cat.questions.length}</span>
-                )}
               </button>
             )
           })}
