@@ -151,11 +151,10 @@ function saveToStorage(key: string, value: unknown) {
   } catch { /* quota exceeded – ignore */ }
 }
 
-/** Draw the current card onto a canvas and return a blob. */
+/** Draw the current card onto a canvas and return a blob. Always timer-free. */
 function renderCardToBlob(
   question: string,
   categoryName: string,
-  timerInfo?: { expired: boolean; remaining: number; duration: number } | null,
 ): Promise<Blob | null> {
   const WIDTH = 640
   const HEIGHT = Math.round(WIDTH * (7 / 5)) // 5:7 aspect ratio
@@ -215,48 +214,11 @@ function renderCardToBlob(
 
   const lineHeight = fontSize * 1.35
   const questionHeight = lines.length * lineHeight
-  const maxQuestionArea = HEIGHT - PAD * 2 - 40 - 30 // leave room for category + timer
+  const maxQuestionArea = HEIGHT - PAD * 2 - 40 - 30
   const startY = Math.min(PAD, PAD + (maxQuestionArea - questionHeight) / 2)
 
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i], textX, startY + i * lineHeight)
-  }
-
-  // Timer info at bottom of question area if active
-  let bottomOffset = PAD + Math.max(questionHeight, 60) + 8
-
-  if (timerInfo && timerInfo.duration > 0) {
-    const barY = bottomOffset
-    const barHeight = 6
-    const progress = timerInfo.remaining / timerInfo.duration
-
-    // Progress bar track
-    ctx.fillStyle = '#e5e5e5'
-    ctx.beginPath()
-    ctx.roundRect(textX, barY, textWidth, barHeight, 3)
-    ctx.fill()
-
-    // Progress bar fill
-    ctx.fillStyle = timerInfo.remaining <= 10 ? '#ef4444' : '#000000'
-    ctx.beginPath()
-    ctx.roundRect(textX, barY, textWidth * progress, barHeight, 3)
-    ctx.fill()
-
-    // Time remaining text
-    ctx.font = `700 16px "Helvetica Neue", Helvetica, Arial, sans-serif`
-    ctx.textBaseline = 'top'
-    ctx.fillStyle = timerInfo.remaining <= 10 ? '#ef4444' : '#000000'
-    const timeStr = formatTime(timerInfo.remaining)
-    const timeMetrics = ctx.measureText(timeStr)
-    ctx.fillText(timeStr, WIDTH - PAD - timeMetrics.width, barY + barHeight + 4)
-
-    if (timerInfo.expired) {
-      ctx.font = `700 16px "Helvetica Neue", Helvetica, Arial, sans-serif`
-      ctx.fillStyle = '#ef4444'
-      ctx.fillText("Time's up!", textX, barY + barHeight + 4)
-    }
-
-    bottomOffset = barY + barHeight + 28
   }
 
   // Category name at bottom
@@ -447,14 +409,13 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     }
   }
 
-  /** Share the current card as an image — exported image never includes the timer */
+  /** Share the current card as an image */
   const shareCard = useCallback(async () => {
     if (!card) return
 
     const blob = await renderCardToBlob(
       card.question,
       card.categoryName,
-      null, // timer is never included in exported images
     )
     if (!blob) return
 
@@ -481,7 +442,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     a.download = 'starters-card.png'
     a.click()
     URL.revokeObjectURL(url)
-  }, [card, timerDuration, timerExpired, timeRemaining])
+  }, [card])
 
   /** Copy the question text to clipboard */
   const copyQuestion = useCallback(async () => {
