@@ -490,7 +490,6 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
 
   const canDraw = activeCats.size > 0 && remainingQuestions > 0 && !isAnimating
   const timerProgress = timerDuration > 0 ? timeRemaining / timerDuration : 1
-  const isUsed = card ? usedQuestions.has(questionKey(card)) : false
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
@@ -672,13 +671,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
                   </span>
                 </div>
               )}
-              {isUsed && !allExhausted && (
-                <div style={{ marginTop: '4px' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#a1a1aa', fontWeight: 600 }}>
-                    Already used
-                  </span>
-                </div>
-              )}
+
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <p
