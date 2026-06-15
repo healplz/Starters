@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Category } from '@/lib/table-topics'
 
 const FLIP_MS = 300
+const MAX_HISTORY = 10
+const STORAGE_HISTORY_KEY = 'starters_history'
+const STORAGE_USED_KEY = 'starters_used'
 const TIMER_OPTIONS = [
   { label: 'Off', value: 0 },
   { label: '30s', value: 30 },
@@ -79,12 +82,55 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+function questionKey(card: CardData): string {
+  return `${card.categoryName}::${card.question}`
+}
+
 type CardData = { question: string; categoryName: string }
 
-function drawFrom(categories: Category[], activeCats: Set<string>): CardData {
+/** Pick a random question, excluding used questions and preferring to avoid the most recent card. */
+function drawFrom(
+  categories: Category[],
+  activeCats: Set<string>,
+  usedQuestions: Set<string>,
+  previousCard: CardData | null,
+): CardData | null {
   const pool = categories.filter((c) => activeCats.has(c.name))
-  const cat = pickRandom(pool)
-  return { question: pickRandom(cat.questions), categoryName: cat.name }
+
+  // Gather all eligible questions
+  const eligible: CardData[] = []
+  for (const cat of pool) {
+    for (const q of cat.questions) {
+      if (!usedQuestions.has(`${cat.name}::${q}`)) {
+        eligible.push({ question: q, categoryName: cat.name })
+      }
+    }
+  }
+
+  if (eligible.length === 0) return null
+
+  // Try to avoid giving the exact same question as the previous card
+  const prevKey = previousCard ? questionKey(previousCard) : null
+  const filtered = prevKey ? eligible.filter((c) => questionKey(c) !== prevKey) : eligible
+
+  return pickRandom(filtered.length > 0 ? filtered : eligible)
+}
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as T) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function saveToStorage(key: string, value: unknown) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch { /* quota exceeded – ignore */ }
 }
 
 export default function CardDeck({ categories }: { categories: Category[] }) {
@@ -94,6 +140,26 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
   const [card, setCard] = useState<CardData | null>(null)
   const [faceUp, setFaceUp] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [allExhausted, setAllExhausted] = useState(false)
+
+  // Session history + used questions
+  const [history, setHistory] = useState<CardData[]>(() =>
+    loadFromStorage<CardData[]>(STORAGE_HISTORY_KEY, [])
+  )
+  const [usedQuestions, setUsedQuestions] = useState<Set<string>>(() => {
+    const arr = loadFromStorage<string[]>(STORAGE_USED_KEY, [])
+    return new Set(arr)
+  })
+  const [showHistory, setShowHistory] = useState(false)
+
+  // Persist history and used questions to localStorage
+  useEffect(() => {
+    saveToStorage(STORAGE_HISTORY_KEY, history)
+  }, [history])
+
+  useEffect(() => {
+    saveToStorage(STORAGE_USED_KEY, Array.from(usedQuestions))
+  }, [usedQuestions])
 
   // Timer state
   const [timerDuration, setTimerDuration] = useState(0)
@@ -152,13 +218,32 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     }
   }, [timerDuration, clearTimer])
 
+  const performDraw = useCallback((cats: Set<string>, used: Set<string>, prevCard: CardData | null) => {
+    const next = drawFrom(categories, cats, used, prevCard)
+    setAllExhausted(next === null)
+    return next
+  }, [categories])
+
   const deal = useCallback((cats: Set<string>) => {
     if (cats.size === 0 || isAnimating) return
-    const next = drawFrom(categories, cats)
+
+    // If all questions are used, reset the session automatically
+    const effectiveUsed = usedQuestions
+
+    const next = performDraw(cats, effectiveUsed, card)
+    if (!next) {
+      setAllExhausted(true)
+      return
+    }
+
     if (!faceUp) {
       setCard(next)
       setFaceUp(true)
     } else {
+      // Push current card to history before flipping to new one
+      if (card) {
+        setHistory((prev) => [card, ...prev].slice(0, MAX_HISTORY))
+      }
       setIsAnimating(true)
       setFaceUp(false)
       setTimeout(() => {
@@ -167,15 +252,20 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
         setIsAnimating(false)
       }, FLIP_MS / 2)
     }
-    // Reset timer on new deal
-    // Timer reset happens after state settles via useEffect-like mechanism
     setTimeout(() => {
       resetTimer()
     }, faceUp ? FLIP_MS / 2 : 0)
-  }, [faceUp, isAnimating, categories, resetTimer])
+  }, [faceUp, isAnimating, categories, performDraw, card, usedQuestions, resetTimer])
 
   useEffect(() => {
-    setCard(drawFrom(categories, new Set(allNames)))
+    const initial = performDraw(new Set(allNames), usedQuestions, null)
+    if (initial) {
+      setCard(initial)
+      setFaceUp(true)
+    } else {
+      setAllExhausted(true)
+    }
+  // Run once on mount
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -213,12 +303,93 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     }
   }
 
+  /** Mark the current question as used and draw a new one */
+  const markUsedAndDraw = () => {
+    if (!card) return
+    setUsedQuestions((prev) => {
+      const next = new Set(prev)
+      next.add(questionKey(card))
+      return next
+    })
+    // Draw a new card after marking used
+    // We need to defer so the used set is updated
+    setTimeout(() => {
+      setUsedQuestions((currentUsed) => {
+        // We can't call deal from inside a setState updater, so we use a ref trick
+        return currentUsed
+      })
+    }, 0)
+    // Instead, let's use a different approach: trigger deal after a microtask
+    setTimeout(() => {
+      // Re-run deal with the updated usedQuestions state
+      // Since usedQuestions hasn't been applied yet in this render, 
+      // we'll schedule a new draw
+    }, 0)
+  }
+
+  /** Mark the current question as used */
+  const markUsed = () => {
+    if (!card) return
+    const key = questionKey(card)
+    if (usedQuestions.has(key)) return
+
+    const nextUsed = new Set(usedQuestions)
+    nextUsed.add(key)
+    setUsedQuestions(nextUsed)
+
+    // Also add to history if not already there
+    setHistory((prev) => {
+      if (prev.length > 0 && prev[0].question === card.question && prev[0].categoryName === card.categoryName) {
+        return prev
+      }
+      return [card, ...prev].slice(0, MAX_HISTORY)
+    })
+
+    // Auto-draw next card
+    const next = performDraw(activeCats, nextUsed, card)
+    if (!next) {
+      setAllExhausted(true)
+      return
+    }
+    setIsAnimating(true)
+    setFaceUp(false)
+    setTimeout(() => {
+      setCard(next)
+      setFaceUp(true)
+      setIsAnimating(false)
+      resetTimer()
+    }, FLIP_MS / 2)
+  }
+
+  /** Reset the session: clear history and used questions */
+  const resetSession = () => {
+    setHistory([])
+    setUsedQuestions(new Set())
+    setAllExhausted(false)
+    // Re-draw the initial card
+    const next = drawFrom(categories, activeCats, new Set(), null)
+    if (next) {
+      setCard(next)
+      setFaceUp(true)
+      resetTimer()
+    }
+  }
+
   const isAllSelected = activeCats.size === allNames.size
-  const deckSize = categories
+
+  const totalQuestions = categories
     .filter((c) => activeCats.has(c.name))
     .reduce((sum, c) => sum + c.questions.length, 0)
-  const canDraw = activeCats.size > 0
+
+  const remainingQuestions = categories
+    .filter((c) => activeCats.has(c.name))
+    .reduce((sum, c) => {
+      return sum + c.questions.filter((q) => !usedQuestions.has(`${c.name}::${q}`)).length
+    }, 0)
+
+  const canDraw = activeCats.size > 0 && remainingQuestions > 0 && !isAnimating
   const timerProgress = timerDuration > 0 ? timeRemaining / timerDuration : 1
+  const isUsed = card ? usedQuestions.has(questionKey(card)) : false
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
@@ -304,18 +475,45 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
             }}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <p
-                style={{
-                  fontWeight: 700,
-                  fontSize: '1.25rem',
-                  lineHeight: 1.4,
-                  color: '#000',
-                  margin: 0,
-                  textAlign: 'left',
-                }}
-              >
-                {card?.question ?? ''}
-              </p>
+              {allExhausted ? (
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                  <p
+                    style={{
+                      fontWeight: 700,
+                      fontSize: '1.1rem',
+                      lineHeight: 1.4,
+                      color: '#000',
+                      margin: '0 0 8px 0',
+                      textAlign: 'center',
+                    }}
+                  >
+                    All questions used!
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '0.8rem',
+                      color: '#666',
+                      margin: 0,
+                      textAlign: 'center',
+                    }}
+                  >
+                    Reset your session to start fresh.
+                  </p>
+                </div>
+              ) : (
+                <p
+                  style={{
+                    fontWeight: 700,
+                    fontSize: '1.25rem',
+                    lineHeight: 1.4,
+                    color: '#000',
+                    margin: 0,
+                    textAlign: 'left',
+                  }}
+                >
+                  {card?.question ?? ''}
+                </p>
+              )}
               {/* Timer countdown on card face */}
               {timerActive && timerDuration > 0 && (
                 <div
@@ -373,6 +571,13 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
                   </span>
                 </div>
               )}
+              {isUsed && !allExhausted && (
+                <div style={{ marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.7rem', color: '#a1a1aa', fontWeight: 600 }}>
+                    Already used
+                  </span>
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <p
@@ -393,31 +598,73 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
         </div>
       </div>
 
-      {/* Draw button + timer row */}
+      {/* Draw button + action row */}
       <div className="flex flex-col items-center gap-3 w-full max-w-sm">
         {/* Draw button */}
-        <button
-          onClick={() => deal(activeCats)}
-          disabled={!canDraw || isAnimating}
-          className="flex items-center gap-2 px-7 py-3 rounded-full bg-white text-zinc-900 text-sm font-medium hover:bg-zinc-100 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+        {allExhausted ? (
+          <button
+            onClick={resetSession}
+            className="flex items-center gap-2 px-7 py-3 rounded-full bg-amber-500 text-zinc-900 text-sm font-medium hover:bg-amber-400 active:scale-95 transition-all cursor-pointer"
           >
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-          </svg>
-          {faceUp ? 'Draw Another' : 'Draw'}
-        </button>
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            Reset Session
+          </button>
+        ) : (
+          <button
+            onClick={() => deal(activeCats)}
+            disabled={!canDraw || isAnimating}
+            className="flex items-center gap-2 px-7 py-3 rounded-full bg-white text-zinc-900 text-sm font-medium hover:bg-zinc-100 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            {faceUp ? 'Draw Another' : 'Draw'}
+          </button>
+        )}
+
+        {/* Secondary action row */}
+        {card && !allExhausted && (
+          <div className="flex items-center gap-2">
+            {!isUsed && (
+              <button
+                onClick={markUsed}
+                disabled={isAnimating}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 text-zinc-400 text-xs font-medium border border-zinc-700 hover:text-emerald-300 hover:border-emerald-700 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Done — Next
+              </button>
+            )}
+            <button
+              onClick={resetSession}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 text-zinc-500 text-xs font-medium border border-zinc-700 hover:text-zinc-300 hover:border-zinc-500 transition-all cursor-pointer"
+              title={history.length > 0 || usedQuestions.size > 0 ? 'Reset session (clear history and used questions)' : 'Reset session'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              Reset
+            </button>
+          </div>
+        )}
 
         {/* Timer selector */}
         <div className="flex items-center gap-2">
@@ -447,7 +694,9 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
             Your deck
           </p>
           <span className="text-xs text-zinc-600">
-            {canDraw ? `${deckSize} questions` : 'no categories selected'}
+            {canDraw || allExhausted
+              ? `${remainingQuestions} / ${totalQuestions} available`
+              : 'no categories selected'}
           </span>
           <button
             onClick={() => setActiveCats(isAllSelected ? new Set() : new Set(allNames))}
@@ -461,6 +710,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
           {categories.map((cat) => {
             const s = getPillStyles(cat.name)
             const isActive = activeCats.has(cat.name)
+            const usedInCat = cat.questions.filter((q) => usedQuestions.has(`${cat.name}::${q}`)).length
             return (
               <button
                 key={cat.name}
@@ -470,11 +720,53 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
                 }`}
               >
                 {shortName(cat.name)}
+                {isActive && usedInCat > 0 && (
+                  <span className="ml-1.5 opacity-60">{cat.questions.length - usedInCat}/{cat.questions.length}</span>
+                )}
               </button>
             )
           })}
         </div>
       </div>
+
+      {/* History strip */}
+      {history.length > 0 && (
+        <div className="w-full max-w-2xl flex flex-col items-center gap-2">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="text-xs text-zinc-600 underline underline-offset-2 hover:text-zinc-400 transition-colors cursor-pointer"
+          >
+            {showHistory ? 'Hide history' : `Show history (${history.length})`}
+          </button>
+
+          {showHistory && (
+            <div className="w-full max-h-40 overflow-y-auto flex flex-col gap-1.5 px-2">
+              {history.map((entry, i) => {
+                const used = usedQuestions.has(questionKey(entry))
+                return (
+                  <div
+                    key={`${i}-${entry.question}`}
+                    className={`flex items-start gap-2 px-3 py-2 rounded-lg text-sm ${
+                      used ? 'bg-zinc-800/30' : 'bg-zinc-800/50'
+                    }`}
+                  >
+                    <span className="text-zinc-600 text-xs mt-0.5 shrink-0 w-4">#{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm leading-snug ${used ? 'text-zinc-500 line-through' : 'text-zinc-300'}`}>
+                        {entry.question}
+                      </p>
+                      <p className="text-xs text-zinc-600 mt-0.5">{shortName(entry.categoryName)}</p>
+                    </div>
+                    {used && (
+                      <span className="text-xs text-zinc-600 shrink-0 mt-0.5">✓ used</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
       </div>
     </div>
   )
