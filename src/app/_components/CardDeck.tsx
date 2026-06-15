@@ -803,7 +803,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
             Your deck
           </p>
           <span className="text-xs text-zinc-600">
-            {canDraw || allExhausted
+            {activeCats.size > 0
               ? `${remainingQuestions} / ${totalQuestions} available`
               : 'no categories selected'}
           </span>
