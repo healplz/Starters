@@ -373,45 +373,41 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
   const deal = useCallback((cats: Set<string>) => {
     if (cats.size === 0 || isAnimating) return
 
-    // Build the used set: include all previously used questions, and auto-mark
-    // the current card as used when drawing a new one.
-    const nextUsed = card ? new Set(usedQuestions).add(questionKey(card)) : usedQuestions
-    const prevCard = card
+    if (!faceUp) {
+      // First draw — reveal the pre-loaded card
+      setFaceUp(true)
+      setTimeout(() => { resetTimer() }, 0)
+      return
+    }
 
-    const next = performDraw(cats, nextUsed, prevCard, history)
+    // Auto-mark current card as used and draw a new one
+    const nextUsed = card ? new Set(usedQuestions).add(questionKey(card)) : usedQuestions
+
+    const next = performDraw(cats, nextUsed, card, history)
     if (!next) {
       setAllExhausted(true)
       return
     }
 
-    if (!faceUp) {
-      // First draw — no card to mark as used
+    setUsedQuestions(nextUsed)
+    if (card) {
+      setHistory((prev) => [card, ...prev].slice(0, MAX_HISTORY))
+    }
+    setIsAnimating(true)
+    setFaceUp(false)
+    setTimeout(() => {
       setCard(next)
       setFaceUp(true)
-    } else {
-      // Auto-mark current card as used, push to history
-      setUsedQuestions(nextUsed)
-      if (card) {
-        setHistory((prev) => [card, ...prev].slice(0, MAX_HISTORY))
-      }
-      setIsAnimating(true)
-      setFaceUp(false)
-      setTimeout(() => {
-        setCard(next)
-        setFaceUp(true)
-        setIsAnimating(false)
-      }, FLIP_MS / 2)
-    }
-    setTimeout(() => {
+      setIsAnimating(false)
       resetTimer()
-    }, faceUp ? FLIP_MS / 2 : 0)
-  }, [faceUp, isAnimating, categories, performDraw, card, usedQuestions, history, resetTimer])
+    }, FLIP_MS / 2)
+  }, [faceUp, isAnimating, performDraw, card, usedQuestions, history, resetTimer])
 
   useEffect(() => {
     const initial = performDraw(new Set(allNames), usedQuestions, null, [])
     if (initial) {
       setCard(initial)
-      setFaceUp(true)
+      // faceUp stays false — card back shows on load. First click flips it.
     } else {
       setAllExhausted(true)
     }
