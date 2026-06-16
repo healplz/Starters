@@ -477,18 +477,20 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     if (!blob) return
 
     try {
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob }),
-      ])
+      // Wrap in a File so the clipboard API gets the right MIME type
+      const file = new File([blob], 'starters-card.png', { type: 'image/png' })
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': file })])
+      return
     } catch {
-      // Fallback: download the image
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'starters-card.png'
-      a.click()
-      URL.revokeObjectURL(url)
+      /* clipboard write not supported — fall through to download */
     }
+
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'starters-card.png'
+    a.click()
+    URL.revokeObjectURL(url)
   }, [cardToBlob])
 
   /** Reset the session: clear history and used questions */
