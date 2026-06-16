@@ -454,12 +454,23 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
 
     const file = new File([blob], 'starters-card.png', { type: 'image/png' })
 
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ title: 'Starters', text: card?.question ?? '', files: [file] })
-        return
-      } catch {
-        /* cancelled or failed — fall through to download */
+    if (navigator.share) {
+      const canShareFiles = navigator.canShare?.({ files: [file] })
+      if (canShareFiles) {
+        try {
+          await navigator.share({ title: 'Starters', text: card?.question ?? '', files: [file] })
+          return
+        } catch {
+          /* cancelled or failed — fall through */
+        }
+      } else {
+        // Browser has share but can't share files — try sharing text instead
+        try {
+          await navigator.share({ title: 'Starters', text: card?.question ?? '' })
+          return
+        } catch {
+          /* cancelled or failed — fall through to download */
+        }
       }
     }
 
@@ -476,22 +487,31 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     const blob = await cardToBlob()
     if (!blob) return
 
+    // 1. Try ClipboardItem API (supported in Chrome 76+, Safari 13.1+, Edge 79+)
     try {
-      // Wrap in a File so the clipboard API gets the right MIME type
       const file = new File([blob], 'starters-card.png', { type: 'image/png' })
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': file })])
       return
     } catch {
-      /* clipboard write not supported — fall through to download */
+      /* clipboard write not supported — try text fallback */
     }
 
+    // 2. Copy the question text instead (available everywhere)
+    try {
+      await navigator.clipboard.writeText(card?.question ?? '')
+      return
+    } catch {
+      /* text copy also failed — download instead */
+    }
+
+    // 3. Last resort: download the image
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = 'starters-card.png'
     a.click()
     URL.revokeObjectURL(url)
-  }, [cardToBlob])
+  }, [cardToBlob, card])
 
   /** Reset the session: clear history and used questions */
   const resetSession = () => {
