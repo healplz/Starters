@@ -454,17 +454,21 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
 
     const file = new File([blob], 'starters-card.png', { type: 'image/png' })
 
-    if (navigator.share) {
+    // Web Share API's "Copy" action on macOS Safari copies the shared file AND
+    // a page-content snapshot, producing duplicate clipboard entries. Restrict
+    // Web Share to touch devices (mobile/tablet) where it works correctly.
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+
+    if (isTouchDevice && navigator.share) {
       const canShareFiles = navigator.canShare?.({ files: [file] })
       if (canShareFiles) {
         try {
-          await navigator.share({ title: 'Starters', text: card?.question ?? '', files: [file] })
+          await navigator.share({ title: 'Starters', files: [file] })
           return
         } catch {
-          /* cancelled or failed — fall through */
+          /* cancelled or failed — fall through to download */
         }
       } else {
-        // Browser has share but can't share files — try sharing text instead
         try {
           await navigator.share({ title: 'Starters', text: card?.question ?? '' })
           return
@@ -484,21 +488,32 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
 
   /** Copy the rendered card image to the clipboard. */
   const copyImage = useCallback(async () => {
+    if (!card) return
+
+    // 1. Try ClipboardItem API — pass the Promise directly (without awaiting) so that
+    //    Safari retains the user-gesture context when clipboard.write() is called.
+    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'image/png': cardToBlob().then((b) => {
+              if (!b) throw new Error('no blob')
+              return b
+            }),
+          }),
+        ])
+        return
+      } catch {
+        /* clipboard write not supported or failed — try text fallback */
+      }
+    }
+
     const blob = await cardToBlob()
     if (!blob) return
 
-    // 1. Try ClipboardItem API (supported in Chrome 76+, Safari 13.1+, Edge 79+)
-    try {
-      const file = new File([blob], 'starters-card.png', { type: 'image/png' })
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': file })])
-      return
-    } catch {
-      /* clipboard write not supported — try text fallback */
-    }
-
     // 2. Copy the question text instead (available everywhere)
     try {
-      await navigator.clipboard.writeText(card?.question ?? '')
+      await navigator.clipboard.writeText(card.question)
       return
     } catch {
       /* text copy also failed — download instead */
