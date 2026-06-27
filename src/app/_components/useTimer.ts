@@ -52,17 +52,8 @@ export function useTimer(): TimerState {
       })
     }, 1000)
     return clearTimer
-  }, [timerActive, timerKey, clearTimer])
-
-  // Stop timer when duration is set to 0
-  useEffect(() => {
-    if (timerDuration === 0) {
-      clearTimer()
-      setTimerActive(false)
-      setTimeRemaining(0)
-      setTimerExpired(false)
-    }
-  }, [timerDuration, clearTimer])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerActive, timerKey, clearTimer]) // timeRemaining intentionally omitted — timerKey drives re-runs
 
   const handleChange = useCallback((value: number) => {
     clearTimer()

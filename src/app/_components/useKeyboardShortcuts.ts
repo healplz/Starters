@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 
 type Handlers = {
   onDraw: () => void
@@ -12,7 +12,8 @@ type Handlers = {
 
 export function useKeyboardShortcuts(handlers: Handlers): void {
   const ref = useRef(handlers)
-  ref.current = handlers // always call latest closures
+  // Update ref synchronously before any paint so event listeners always call the latest closures
+  useLayoutEffect(() => { ref.current = handlers })
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null
