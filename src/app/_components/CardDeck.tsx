@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Category } from '@/lib/table-topics'
 import { drawFrom, questionKey, pruneUsedForActive, type CardData } from '@/lib/draw'
+import { useReducedMotion } from './useReducedMotion'
 
 const FLIP_MS = 300
 const MAX_HISTORY = 10
@@ -213,6 +214,8 @@ function renderCardToBlob(
 
 export default function CardDeck({ categories }: { categories: Category[] }) {
   const allNames = new Set(categories.map((c) => c.name))
+  const reducedMotion = useReducedMotion()
+  const flipMs = reducedMotion ? 0 : FLIP_MS
 
   const [activeCats, setActiveCats] = useState<Set<string>>(allNames)
   const [card, setCard] = useState<CardData | null>(null)
@@ -329,13 +332,15 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     // Auto-mark current card as used and draw a new one
     const nextUsed = card ? new Set(usedQuestions).add(questionKey(card)) : usedQuestions
 
-    const next = performDraw(cats, nextUsed, card, history)
+    let next = performDraw(cats, nextUsed, card, history)
+    let usedAfter = nextUsed
     if (!next) {
-      setAllExhausted(true)
-      return
+      // Active deck exhausted — reshuffle: make active-category questions drawable again
+      usedAfter = pruneUsedForActive(nextUsed, cats, categories)
+      next = performDraw(cats, usedAfter, card, history)
     }
-
-    setUsedQuestions(nextUsed)
+    if (!next) { setAllExhausted(true); return } // only when active categories contain zero questions
+    setUsedQuestions(usedAfter)
     if (card) {
       setHistory((prev) => [card, ...prev].slice(0, MAX_HISTORY))
     }
@@ -346,8 +351,8 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
       setFaceUp(true)
       setIsAnimating(false)
       resetTimer()
-    }, FLIP_MS / 2)
-  }, [faceUp, isAnimating, performDraw, card, usedQuestions, history, resetTimer])
+    }, flipMs / 2)
+  }, [faceUp, isAnimating, performDraw, card, usedQuestions, history, resetTimer, flipMs, categories])
 
   useEffect(() => {
     const initial = performDraw(new Set(allNames), usedQuestions, null, [])
@@ -528,7 +533,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
             width: '100%',
             height: '100%',
             transformStyle: 'preserve-3d',
-            transition: `transform ${FLIP_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+            transition: `transform ${flipMs}ms cubic-bezier(0.4, 0, 0.2, 1)`,
             transform: faceUp ? 'rotateY(180deg)' : 'rotateY(0deg)',
           }}
         >
