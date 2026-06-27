@@ -146,6 +146,7 @@ export function CardFace({
             {/* Timer countdown on card face */}
             {timerActive && timerDuration > 0 && (
               <div
+                data-testid="card-timer"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -203,6 +204,7 @@ export function CardFace({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <p
+              data-testid="card-category"
               style={{
                 fontWeight: 700,
                 fontSize: '0.65rem',

@@ -38,18 +38,24 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
   const [hydrated, setHydrated] = useState(false)
 
   // Hydrate from localStorage + URL on mount
+  /* eslint-disable react-hooks/set-state-in-effect -- hydration effect: one-time read from localStorage + URL */
   useEffect(() => {
     const savedHistory = loadFromStorage<CardData[]>(STORAGE_HISTORY_KEY, [])
     if (savedHistory.length > 0) setHistory(savedHistory)
     const savedUsed = loadFromStorage<string[]>(STORAGE_USED_KEY, [])
-    if (savedUsed.length > 0) setUsedQuestions(new Set(savedUsed))
+    const usedSet = new Set(savedUsed)
+    if (savedUsed.length > 0) setUsedQuestions(usedSet)
     const savedFav = loadFromStorage<CardData[]>(STORAGE_FAV_KEY, [])
     if (savedFav.length > 0) setFavorites(savedFav)
-    // Read ?cats= param for initial category selection
     const params = new URLSearchParams(window.location.search)
-    setActiveCats(parseCatsParam(params.get('cats'), categories))
+    const initialCats = parseCatsParam(params.get('cats'), categories)
+    setActiveCats(initialCats)
+    const initial = drawFrom(categories, initialCats, usedSet, null, [])
+    if (initial) setCard(initial)
+    else setAllExhausted(true)
     setHydrated(true)
   }, [categories])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!hydrated) return
@@ -93,7 +99,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     if (cats.size === 0 || isAnimating) return
     if (!faceUp) {
       setFaceUp(true)
-      setTimeout(() => { timer.reset() }, 0)
+      timer.reset()
       return
     }
     const nextUsed = card ? new Set(usedQuestions).add(questionKey(card)) : usedQuestions
@@ -116,15 +122,9 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     }, flipMs / 2)
   }, [faceUp, isAnimating, performDraw, card, usedQuestions, history, timer, flipMs, categories])
 
-  // Pre-load initial card on mount
-  useEffect(() => {
-    const initial = performDraw(new Set(allNames), usedQuestions, null, [])
-    if (initial) setCard(initial)
-    else setAllExhausted(true)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const toggleCategory = (name: string) => {
+    setAllExhausted(false)
     setActiveCats((prev) => {
       const next = new Set(prev)
       if (next.has(name)) next.delete(name)
@@ -184,6 +184,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     setAllExhausted(false)
     const next = drawFrom(categories, activeCats, new Set(), null, [])
     if (next) { setCard(next); setFaceUp(true); timer.reset() }
+    else setAllExhausted(true)
   }
 
   const isFavorite = useCallback((c: CardData | null) =>
@@ -331,7 +332,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
           totalQuestions={totalQuestions}
           isAllSelected={isAllSelected}
           onToggle={toggleCategory}
-          onSelectAll={() => setActiveCats(isAllSelected ? new Set() : new Set(allNames))}
+          onSelectAll={() => { setAllExhausted(false); setActiveCats(isAllSelected ? new Set() : new Set(allNames)) }}
         />
       </div>
 
