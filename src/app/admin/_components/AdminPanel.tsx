@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
+import { useState, useTransition, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Category } from '@/lib/table-topics'
 import BulkImport from './BulkImport'
@@ -11,11 +11,13 @@ export default function AdminPanel({ categories: initialCategories }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [categories, setCategories] = useState(initialCategories)
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
   const [mode, setMode] = useState<'editor' | 'bulk'>('editor')
   // Track questions that existed at load time — these are read-only
-  const originalQuestions = useRef<Map<string, Set<string>>>(
-    new Map(initialCategories.map((c) => [c.name, new Set(c.questions)]))
+  const originalQuestions = useMemo<Map<string, Set<string>>>(
+    () => new Map(initialCategories.map((c) => [c.name, new Set(c.questions)])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   )
 
   const selectedCat = searchParams.get('cat') ?? categories[0]?.name ?? ''
@@ -141,7 +143,7 @@ export default function AdminPanel({ categories: initialCategories }: Props) {
         ) : currentCategory ? (
           <QuestionPanel
             category={currentCategory}
-            originalQuestions={originalQuestions.current.get(currentCategory.name) ?? new Set()}
+            originalQuestions={originalQuestions.get(currentCategory.name) ?? new Set()}
             onAdd={(q) => addQuestion(currentCategory.name, q)}
             onEdit={(old, next) => editQuestion(currentCategory.name, old, next)}
             onDelete={(q) => deleteQuestion(currentCategory.name, q)}

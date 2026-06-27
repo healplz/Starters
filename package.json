@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "jest && playwright test",
+    "test:e2e": "playwright test",
+    "test:unit": "jest"
   },
   "dependencies": {
     "@vercel/kv": "^3.0.0",
@@ -16,13 +19,15 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
-    "playwright": "^1.58.2",
+    "jest": "^30.4.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
