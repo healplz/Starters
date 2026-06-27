@@ -441,58 +441,92 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     }
   }
 
-  /** Share the current card as an image */
-  const shareCard = useCallback(async () => {
-    if (!card) return
+  /** Render the current card to a blob, returns null if no card or render fails. */
+  const cardToBlob = useCallback(async (): Promise<Blob | null> => {
+    if (!card) return null
+    return renderCardToBlob(card.question, card.categoryName)
+  }, [card])
 
-    const blob = await renderCardToBlob(
-      card.question,
-      card.categoryName,
-    )
+  /** Share the current card as an image via the system share sheet (fallback: download). */
+  const shareCard = useCallback(async () => {
+    const blob = await cardToBlob()
     if (!blob) return
 
     const file = new File([blob], 'starters-card.png', { type: 'image/png' })
 
-    // Try Web Share API with image
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({
-          title: 'Starters',
-          text: card.question,
-          files: [file],
-        })
-        return
-      } catch {
-        // User cancelled or API failed – fall through
+    // Web Share API's "Copy" action on macOS Safari copies the shared file AND
+    // a page-content snapshot, producing duplicate clipboard entries. Restrict
+    // Web Share to touch devices (mobile/tablet) where it works correctly.
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+
+    if (isTouchDevice && navigator.share) {
+      const canShareFiles = navigator.canShare?.({ files: [file] })
+      if (canShareFiles) {
+        try {
+          await navigator.share({ title: 'Starters', files: [file] })
+          return
+        } catch {
+          /* cancelled or failed — fall through to download */
+        }
+      } else {
+        try {
+          await navigator.share({ title: 'Starters', text: card?.question ?? '' })
+          return
+        } catch {
+          /* cancelled or failed — fall through to download */
+        }
       }
     }
 
-    // Fallback: download the image
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = 'starters-card.png'
     a.click()
     URL.revokeObjectURL(url)
-  }, [card])
+  }, [cardToBlob, card])
 
-  /** Copy the question text to clipboard */
-  const copyQuestion = useCallback(async () => {
+  /** Copy the rendered card image to the clipboard. */
+  const copyImage = useCallback(async () => {
     if (!card) return
+
+    // 1. Try ClipboardItem API — pass the Promise directly (without awaiting) so that
+    //    Safari retains the user-gesture context when clipboard.write() is called.
+    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'image/png': cardToBlob().then((b) => {
+              if (!b) throw new Error('no blob')
+              return b
+            }),
+          }),
+        ])
+        return
+      } catch {
+        /* clipboard write not supported or failed — try text fallback */
+      }
+    }
+
+    const blob = await cardToBlob()
+    if (!blob) return
+
+    // 2. Copy the question text instead (available everywhere)
     try {
       await navigator.clipboard.writeText(card.question)
+      return
     } catch {
-      // Fallback for older browsers
-      const textarea = document.createElement('textarea')
-      textarea.value = card.question
-      textarea.style.position = 'fixed'
-      textarea.style.opacity = '0'
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
+      /* text copy also failed — download instead */
     }
-  }, [card])
+
+    // 3. Last resort: download the image
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'starters-card.png'
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [cardToBlob, card])
 
   /** Reset the session: clear history and used questions */
   const resetSession = () => {
@@ -779,10 +813,10 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
               Share
             </button>
             <button
-              onClick={copyQuestion}
+              onClick={copyImage}
               disabled={isAnimating}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 text-zinc-400 text-xs font-medium border border-zinc-700 hover:text-zinc-300 hover:border-zinc-500 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Copy question text"
+              title="Copy card image to clipboard"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
