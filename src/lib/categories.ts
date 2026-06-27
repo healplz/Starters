@@ -54,3 +54,23 @@ export function getPillStyles(categoryName: string) {
 export function shortName(name: string): string {
   return name.replace(' Table Topics Questions', '').replace(' and ', ' & ')
 }
+
+import type { Category } from '@/lib/table-topics'
+
+export function slugify(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+/** Param → set of category names. Empty/absent or zero matches → all category names. */
+export function parseCatsParam(param: string | null, categories: Category[]): Set<string> {
+  if (!param) return new Set(categories.map((c) => c.name))
+  const want = new Set(param.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean))
+  const matched = categories.filter((c) => want.has(slugify(c.name))).map((c) => c.name)
+  return matched.length > 0 ? new Set(matched) : new Set(categories.map((c) => c.name))
+}
+
+/** Active set → comma-joined slugs, or null when all categories are selected. */
+export function buildCatsParam(activeCats: Set<string>, categories: Category[]): string | null {
+  if (activeCats.size === categories.length) return null
+  return categories.filter((c) => activeCats.has(c.name)).map((c) => slugify(c.name)).join(',')
+}

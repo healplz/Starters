@@ -5,6 +5,7 @@ import type { Category } from '@/lib/table-topics'
 import { drawFrom, questionKey, pruneUsedForActive, type CardData } from '@/lib/draw'
 import { loadFromStorage, saveToStorage } from '@/lib/storage'
 import { renderCardToBlob } from '@/lib/card-image'
+import { parseCatsParam, buildCatsParam } from '@/lib/categories'
 import { useReducedMotion } from './useReducedMotion'
 import { useTimer } from './useTimer'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
@@ -17,6 +18,7 @@ const FLIP_MS = 300
 const MAX_HISTORY = 10
 const STORAGE_HISTORY_KEY = 'starters_history'
 const STORAGE_USED_KEY = 'starters_used'
+const STORAGE_FAV_KEY = 'starters_favorites'
 
 export default function CardDeck({ categories }: { categories: Category[] }) {
   const allNames = new Set(categories.map((c) => c.name))
@@ -31,17 +33,23 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
 
   const [history, setHistory] = useState<CardData[]>([])
   const [usedQuestions, setUsedQuestions] = useState<Set<string>>(new Set())
+  const [favorites, setFavorites] = useState<CardData[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [hydrated, setHydrated] = useState(false)
 
-  // Hydrate from localStorage on mount
+  // Hydrate from localStorage + URL on mount
   useEffect(() => {
     const savedHistory = loadFromStorage<CardData[]>(STORAGE_HISTORY_KEY, [])
     if (savedHistory.length > 0) setHistory(savedHistory)
     const savedUsed = loadFromStorage<string[]>(STORAGE_USED_KEY, [])
     if (savedUsed.length > 0) setUsedQuestions(new Set(savedUsed))
+    const savedFav = loadFromStorage<CardData[]>(STORAGE_FAV_KEY, [])
+    if (savedFav.length > 0) setFavorites(savedFav)
+    // Read ?cats= param for initial category selection
+    const params = new URLSearchParams(window.location.search)
+    setActiveCats(parseCatsParam(params.get('cats'), categories))
     setHydrated(true)
-  }, [])
+  }, [categories])
 
   useEffect(() => {
     if (!hydrated) return
@@ -52,6 +60,21 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     if (!hydrated) return
     saveToStorage(STORAGE_USED_KEY, Array.from(usedQuestions))
   }, [usedQuestions, hydrated])
+
+  useEffect(() => {
+    if (!hydrated) return
+    saveToStorage(STORAGE_FAV_KEY, favorites)
+  }, [favorites, hydrated])
+
+  // Sync ?cats= URL param on category change
+  useEffect(() => {
+    if (!hydrated) return
+    const param = buildCatsParam(activeCats, categories)
+    const url = new URL(window.location.href)
+    if (param === null) url.searchParams.delete('cats')
+    else url.searchParams.set('cats', param)
+    window.history.replaceState(null, '', url)
+  }, [activeCats, hydrated, categories])
 
   const timer = useTimer()
 
@@ -68,15 +91,12 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
 
   const deal = useCallback((cats: Set<string>) => {
     if (cats.size === 0 || isAnimating) return
-
     if (!faceUp) {
       setFaceUp(true)
       setTimeout(() => { timer.reset() }, 0)
       return
     }
-
     const nextUsed = card ? new Set(usedQuestions).add(questionKey(card)) : usedQuestions
-
     let next = performDraw(cats, nextUsed, card, history)
     let usedAfter = nextUsed
     if (!next) {
@@ -99,11 +119,8 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
   // Pre-load initial card on mount
   useEffect(() => {
     const initial = performDraw(new Set(allNames), usedQuestions, null, [])
-    if (initial) {
-      setCard(initial)
-    } else {
-      setAllExhausted(true)
-    }
+    if (initial) setCard(initial)
+    else setAllExhausted(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -136,9 +153,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     }
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url
-    a.download = 'starters-card.png'
-    a.click()
+    a.href = url; a.download = 'starters-card.png'; a.click()
     URL.revokeObjectURL(url)
   }, [cardToBlob, card])
 
@@ -159,9 +174,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     try { await navigator.clipboard.writeText(card.question); return } catch { /* fall through */ }
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url
-    a.download = 'starters-card.png'
-    a.click()
+    a.href = url; a.download = 'starters-card.png'; a.click()
     URL.revokeObjectURL(url)
   }, [cardToBlob, card])
 
@@ -172,6 +185,17 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     const next = drawFrom(categories, activeCats, new Set(), null, [])
     if (next) { setCard(next); setFaceUp(true); timer.reset() }
   }
+
+  const isFavorite = useCallback((c: CardData | null) =>
+    !!c && favorites.some((f) => questionKey(f) === questionKey(c)), [favorites])
+
+  const toggleFavorite = useCallback((c: CardData) => {
+    setFavorites((prev) =>
+      prev.some((f) => questionKey(f) === questionKey(c))
+        ? prev.filter((f) => questionKey(f) !== questionKey(c))
+        : [c, ...prev],
+    )
+  }, [])
 
   const isAllSelected = activeCats.size === allNames.size
   const totalQuestions = categories
@@ -189,12 +213,12 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
     onShare: () => { if (card && !allExhausted) shareCard() },
     onToggleHistory: () => setShowHistory((v) => !v),
     onCloseHistory: () => setShowHistory(false),
+    onFavorite: () => { if (card && !allExhausted) toggleFavorite(card) },
   })
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-2xl bg-zinc-900/80 backdrop-blur-sm rounded-2xl px-8 py-10 flex flex-col items-center gap-8">
-        {/* Header */}
         <header className="text-center">
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-100">Starters</h1>
           <p className="text-sm text-zinc-500 mt-1">A conversation starter for every occasion</p>
@@ -220,8 +244,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
               className="flex items-center gap-2 px-7 py-3 rounded-full bg-amber-500 text-zinc-900 text-sm font-medium hover:bg-amber-400 active:scale-95 transition-all cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
               </svg>
               Reset Session
             </button>
@@ -233,8 +256,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
               className="flex items-center gap-2 px-7 py-3 rounded-full bg-white text-zinc-900 text-sm font-medium hover:bg-zinc-100 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
               </svg>
               {faceUp ? 'Draw Another' : 'Draw'}
             </button>
@@ -242,6 +264,20 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
 
           {card && !allExhausted && (
             <div className="flex items-center gap-2">
+              {/* Save/favorite button */}
+              <button
+                data-testid="favorite-button"
+                onClick={() => card && toggleFavorite(card)}
+                disabled={isAnimating}
+                aria-pressed={isFavorite(card)}
+                title={isFavorite(card) ? 'Remove from favorites' : 'Save to favorites'}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 text-zinc-400 text-xs font-medium border border-zinc-700 hover:text-amber-300 hover:border-amber-700 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill={isFavorite(card) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                {isFavorite(card) ? 'Saved' : 'Save'}
+              </button>
               <button
                 data-testid="share-button"
                 onClick={shareCard}
@@ -274,8 +310,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
                 title={history.length > 0 || usedQuestions.size > 0 ? 'Reset session (clear history and used questions)' : 'Reset session'}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
                 </svg>
                 Reset
               </button>
@@ -302,9 +337,12 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
 
       <HistoryDrawer
         history={history}
+        favorites={favorites}
         open={showHistory}
         onOpen={() => setShowHistory(true)}
         onClose={() => setShowHistory(false)}
+        isFavorite={isFavorite}
+        onToggleFavorite={toggleFavorite}
       />
     </div>
   )

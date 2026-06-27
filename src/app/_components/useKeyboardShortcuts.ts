@@ -7,6 +7,7 @@ type Handlers = {
   onShare: () => void
   onToggleHistory: () => void
   onCloseHistory: () => void
+  onFavorite: () => void
 }
 
 export function useKeyboardShortcuts(handlers: Handlers): void {
@@ -40,6 +41,10 @@ export function useKeyboardShortcuts(handlers: Handlers): void {
         case 'h':
         case 'H':
           ref.current.onToggleHistory()
+          break
+        case 'f':
+        case 'F':
+          ref.current.onFavorite()
           break
         case 'Escape':
           ref.current.onCloseHistory()
