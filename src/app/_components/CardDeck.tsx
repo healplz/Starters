@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Category } from '@/lib/table-topics'
 import { drawFrom, questionKey, pruneUsedForActive, type CardData } from '@/lib/draw'
 import { useReducedMotion } from './useReducedMotion'
+import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 
 const FLIP_MS = 300
 const MAX_HISTORY = 10
@@ -507,6 +508,15 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
 
   const canDraw = activeCats.size > 0 && remainingQuestions > 0 && !isAnimating
   const timerProgress = timerDuration > 0 ? timeRemaining / timerDuration : 1
+
+  useKeyboardShortcuts({
+    onDraw: () => { if (canDraw) deal(activeCats); else if (allExhausted) resetSession() },
+    onReset: resetSession,
+    onCopy: () => { if (card && !allExhausted) copyImage() },
+    onShare: () => { if (card && !allExhausted) shareCard() },
+    onToggleHistory: () => setShowHistory((v) => !v),
+    onCloseHistory: () => setShowHistory(false),
+  })
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
