@@ -1,14 +1,14 @@
-import { test, expect } from '@playwright/test'
-import { drawFrom, pruneUsedForActive } from '../src/lib/draw'
-import type { Category } from '../src/lib/table-topics'
-import type { CardData } from '../src/lib/draw'
+import { describe, test, expect } from '@jest/globals'
+import { drawFrom, pruneUsedForActive } from './draw'
+import type { Category } from './table-topics'
+import type { CardData } from './draw'
 
 const cats: Category[] = [
   { name: 'A', questions: ['a1', 'a2'] },
   { name: 'B', questions: ['b1'] },
 ]
 
-test.describe('pruneUsedForActive', () => {
+describe('pruneUsedForActive', () => {
   test('removes used keys only for active categories', () => {
     const used = new Set<string>(['A::a1', 'B::b1'])
     const active = new Set<string>(['A'])
@@ -24,7 +24,7 @@ test.describe('pruneUsedForActive', () => {
   })
 })
 
-test.describe('drawFrom exhaustion + reshuffle composition', () => {
+describe('drawFrom exhaustion + reshuffle composition', () => {
   test('returns null when active deck exhausted, non-null after reshuffle', () => {
     const active = new Set<string>(['A'])
     const used = new Set<string>(['A::a1', 'A::a2'])
