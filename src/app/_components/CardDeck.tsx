@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Category } from '@/lib/table-topics'
+import { drawFrom, questionKey, pruneUsedForActive, type CardData } from '@/lib/draw'
 
 const FLIP_MS = 300
 const MAX_HISTORY = 10
@@ -72,67 +73,12 @@ function shortName(name: string): string {
   return name.replace(' Table Topics Questions', '').replace(' and ', ' & ')
 }
 
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
-}
-
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-function questionKey(card: CardData): string {
-  return `${card.categoryName}::${card.question}`
-}
-
-type CardData = { question: string; categoryName: string }
-
-/** Pick a random question, excluding used questions and preferring unseen/fresh ones. */
-function drawFrom(
-  categories: Category[],
-  activeCats: Set<string>,
-  usedQuestions: Set<string>,
-  previousCard: CardData | null,
-  history?: CardData[],
-): CardData | null {
-  const pool = categories.filter((c) => activeCats.has(c.name))
-
-  // Gather all eligible questions with weights
-  interface Weighted { data: CardData; weight: number }
-  const weighted: Weighted[] = []
-  const historySet = new Set(history?.map(questionKey) ?? [])
-  const prevKey = previousCard ? questionKey(previousCard) : null
-
-  for (const cat of pool) {
-    for (const q of cat.questions) {
-      const key = `${cat.name}::${q}`
-      if (usedQuestions.has(key)) continue
-
-      // Weighting:
-      //   - Never seen in this session: 1.0
-      //   - In history (drawn but not used): 0.3
-      //   - Same as the very last card: 0.1
-      let weight = historySet.has(key) ? 0.3 : 1.0
-      if (prevKey === key) weight = 0.1
-
-      weighted.push({ data: { question: q, categoryName: cat.name }, weight })
-    }
-  }
-
-  if (weighted.length === 0) return null
-
-  // Weighted random selection
-  const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0)
-  let random = Math.random() * totalWeight
-  for (const entry of weighted) {
-    random -= entry.weight
-    if (random <= 0) return entry.data
-  }
-
-  // Fallback (shouldn't happen)
-  return weighted[weighted.length - 1].data
-}
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback
