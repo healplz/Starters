@@ -576,6 +576,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
         }}
       >
         <div
+          data-testid="card-flip"
           style={{
             position: 'relative',
             width: '100%',
@@ -668,6 +669,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
                 </div>
               ) : (
                 <p
+                  data-testid="card-question"
                   style={{
                     fontWeight: 700,
                     fontSize: '1.25rem',
@@ -763,6 +765,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
         {/* Draw button */}
         {allExhausted ? (
           <button
+            data-testid="reset-session-button"
             onClick={resetSession}
             className="flex items-center gap-2 px-7 py-3 rounded-full bg-amber-500 text-zinc-900 text-sm font-medium hover:bg-amber-400 active:scale-95 transition-all cursor-pointer"
           >
@@ -774,6 +777,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
           </button>
         ) : (
           <button
+            data-testid="draw-button"
             onClick={() => deal(activeCats)}
             disabled={!canDraw || isAnimating}
             className="flex items-center gap-2 px-7 py-3 rounded-full bg-white text-zinc-900 text-sm font-medium hover:bg-zinc-100 active:scale-95 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
@@ -801,6 +805,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
         {card && !allExhausted && (
           <div className="flex items-center gap-2">
             <button
+              data-testid="share-button"
               onClick={shareCard}
               disabled={isAnimating}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 text-zinc-400 text-xs font-medium border border-zinc-700 hover:text-sky-300 hover:border-sky-700 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
@@ -813,6 +818,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
               Share
             </button>
             <button
+              data-testid="copy-button"
               onClick={copyImage}
               disabled={isAnimating}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 text-zinc-400 text-xs font-medium border border-zinc-700 hover:text-zinc-300 hover:border-zinc-500 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
@@ -824,6 +830,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
               Copy
             </button>
             <button
+              data-testid="reset-button"
               onClick={resetSession}
               className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-zinc-800 text-zinc-500 text-xs font-medium border border-zinc-700 hover:text-zinc-300 hover:border-zinc-500 transition-all cursor-pointer"
               title={history.length > 0 || usedQuestions.size > 0 ? 'Reset session (clear history and used questions)' : 'Reset session'}
@@ -903,6 +910,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
         <>
           {/* Trigger tab — folder tab style, vertical orientation */}
           <button
+            data-testid="history-tab"
             onClick={() => setShowHistory(true)}
             className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center gap-2 py-[25px] px-8 rounded-tl-lg rounded-bl-lg bg-zinc-800/80 text-zinc-400 text-xs font-medium hover:text-zinc-200 hover:bg-zinc-700/80 transition-all cursor-pointer shadow-lg"
             style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
@@ -912,7 +920,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
             <span>History</span>
-            <span className="text-zinc-600">{history.length}</span>
+            <span data-testid="history-count" className="text-zinc-600">{history.length}</span>
           </button>
 
           {/* Backdrop */}
@@ -925,6 +933,7 @@ export default function CardDeck({ categories }: { categories: Category[] }) {
 
           {/* Drawer panel */}
           <div
+            data-testid="history-drawer"
             className={`fixed right-0 top-0 bottom-0 z-50 w-80 max-w-[85vw] bg-zinc-900 border-l border-zinc-800 shadow-2xl transition-transform duration-300 ease-out flex flex-col ${
               showHistory ? 'translate-x-0' : 'translate-x-full'
             }`}
